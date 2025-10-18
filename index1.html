@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pembantu Perbualan AI</title>
+    <style>
+        /* General styling for the body */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f2f5;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Styling for the main container card */
+        .container {
+            background: white;
+            padding: 2rem 2.5rem;
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 100%;
+            max-width: 600px;
+            transition: transform 0.3s ease;
+        }
+
+        .container:hover {
+            transform: translateY(-5px);
+        }
+        
+        /* Header styling */
+        h1 {
+            color: #008080; /* Teal theme for conversation */
+            margin-bottom: 0.5rem;
+        }
+
+        p {
+            color: #666;
+            margin-bottom: 2rem;
+        }
+
+        /* Styling for the main button */
+        #startButton {
+            background-color: #008080; /* Teal button */
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s, box-shadow 0.3s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        #startButton:hover {
+            background-color: #006666;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+        }
+
+        #startButton:active {
+            transform: scale(0.98);
+        }
+
+        #startButton:disabled {
+            background-color: #999;
+            cursor: not-allowed;
+        }
+
+        /* Styling for the display areas */
+        .display-area {
+            text-align: left;
+            border-top: 1px solid #e0e0e0;
+            padding-top: 1.5rem;
+        }
+
+        .display-area div {
+            font-size: 1.1rem;
+            margin-top: 1rem;
+            padding: 10px;
+            border-radius: 8px;
+            min-height: 1.4rem;
+        }
+
+        #userInput {
+            background-color: #f0f2f5;
+            color: #555;
+        }
+
+        #botResponse {
+            background-color: #e0f2f1;
+            color: #008080;
+            font-weight: 500;
+            font-size: 1.2rem;
+            border: 2px solid transparent;
+            transition: border-color 0.3s ease-in-out;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Pembantu Perbualan AI</h1>
+        <p>Tekan butang, dan mulakan perbualan. Tanya saya apa sahaja dalam Bahasa Melayu.</p>
+        
+        <button id="startButton">🎤 Cakap Sekarang</button>
+        
+        <div class="display-area">
+             <div id="userInput"><strong>Anda berkata:</strong> ...</div>
+             <div id="botResponse"><strong>Respons AI:</strong> ...</div>
+        </div>
+    </div>
+
+    <script>
+        // 1. Dapatkan elemen dari HTML
+        const startButton = document.getElementById('startButton');
+        const userInputDisplay = document.getElementById('userInput');
+        const botResponseDisplay = document.getElementById('botResponse');
+
+        // 2. Semak sokongan pelayar untuk API Pertuturan Web
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert("Maaf, pelayar anda tidak menyokong API Pertuturan. Sila cuba Google Chrome.");
+        }
+        
+        const recognition = new SpeechRecognition();
+        const synth = window.speechSynthesis;
+        let malayVoice = null;
+
+        // --- FUNGSI UNTUK MEMUATKAN SUARA MELAYU ---
+        function loadVoices() {
+            const voices = synth.getVoices();
+            malayVoice = voices.find(voice => voice.lang.startsWith('ms-'));
+            
+            if (malayVoice) {
+                console.log('Suara Melayu ditemui:', malayVoice.name);
+            } else {
+                console.warn('Amaran: Tiada suara Melayu (ms-MY) ditemui pada pelayar ini. Audio mungkin tidak akan berfungsi seperti yang dijangkakan.');
+            }
+        }
+
+        // Suara dimuatkan secara tidak segerak (asynchronously)
+        if (synth.onvoiceschanged !== undefined) {
+            synth.onvoiceschanged = loadVoices;
+        }
+        loadVoices(); // Percubaan awal
+
+        // Konfigurasi tetapan pengecaman (Input dalam Bahasa Melayu)
+        recognition.lang = 'ms-MY';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+        
+        // 3. Kendalikan acara klik butang
+        startButton.onclick = () => {
+            recognition.start();
+            userInputDisplay.innerHTML = "<strong>Anda berkata:</strong> Mendengar...";
+            botResponseDisplay.innerHTML = "<strong>Respons AI:</strong> ...";
+            startButton.textContent = "🎧 Mendengar...";
+            startButton.disabled = true;
+        };
+
+        // 4. Proses hasil apabila pertuturan dikesan
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            userInputDisplay.innerHTML = `<strong>Anda berkata:</strong> "${transcript}"`;
+            processInput(transcript);
+        };
+        
+        // Kendalikan akhir pertuturan
+        recognition.onspeechend = () => {
+            recognition.stop();
+            startButton.textContent = "🎤 Cakap Sekarang";
+            startButton.disabled = false;
+        };
+
+        // Kendalikan ralat
+        recognition.onerror = (event) => {
+            userInputDisplay.innerHTML = "<strong>Ralat:</strong> " + event.error;
+            startButton.textContent = "🎤 Cakap Sekarang";
+            startButton.disabled = false;
+        };
+
+        // 5. Fungsi "AI" yang memanggil API Gemini untuk perbualan
+        async function processInput(text) {
+            botResponseDisplay.innerHTML = `<strong>Respons AI:</strong> Sedang berfikir... 🤔`;
+
+            const apiKey = "AIzaSyB7kGcKnEEx9enGOvvqFU9w6X43xxIN8d0"; // API key akan diisi secara automatik
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            const systemPrompt = "Anda adalah pembantu AI bernama Aira. Anda sangat peramah dan bercakap seperti orang Malaysia. Gunakan gaya bahasa yang santai dan semula jadi, kadang-kadang boleh guna perkataan macam 'lah', 'kan', atau 'je' jika sesuai, tetapi jangan keterlaluan. Pastikan jawapan anda mesra dan mudah difahami.";
+
+            const payload = {
+                contents: [{ parts: [{ text: text }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API mengembalikan status ${response.status}`);
+                }
+
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+                let reply = "Maaf, saya menghadapi sedikit masalah untuk membalas.";
+
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    reply = candidate.content.parts[0].text;
+                }
+
+                botResponseDisplay.innerHTML = `<strong>Respons AI:</strong> ${reply}`;
+                speak(reply);
+
+            } catch (error) {
+                console.error("Ralat memanggil API Gemini:", error);
+                const reply = "Maaf, berlaku ralat semasa menyambung kepada AI. Sila cuba lagi.";
+                botResponseDisplay.innerHTML = `<strong>Respons AI:</strong> ${reply}`;
+                speak(reply);
+            }
+        }
+
+        // 6. Fungsi untuk menuturkan teks dalam Bahasa Melayu
+        function speak(text) {
+            if (synth.speaking) {
+                synth.cancel(); // Batalkan pertuturan sebelumnya jika ada
+            }
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            
+            // Tetapkan suara Melayu secara eksplisit jika ditemui
+            if (malayVoice) {
+                utterance.voice = malayVoice;
+            } else {
+                // Cuba tetapkan bahasa sebagai sandaran
+                utterance.lang = 'ms-MY';
+            }
+            
+            // Penunjuk visual apabila mula bercakap
+            utterance.onstart = () => {
+                botResponseDisplay.style.borderColor = '#008080';
+            };
+
+            // Buang penunjuk visual apabila selesai
+            utterance.onend = () => {
+                botResponseDisplay.style.borderColor = 'transparent';
+            };
+            
+            utterance.onerror = (event) => {
+                console.error('Ralat SpeechSynthesisUtterance:', event.error);
+                botResponseDisplay.style.borderColor = 'transparent'; // Reset jika ralat
+            };
+            
+            synth.speak(utterance);
+        }
+    </script>
+
+</body>
+</html>
+
